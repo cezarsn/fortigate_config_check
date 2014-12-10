@@ -16,6 +16,7 @@ class Parser(object):
     def __init__(self):
         self.config_header = []
         self.section_dict = defaultdict(f)
+        self.config_version = "" 
 
     def parse_config(self, fields): # Create a new section
         self.config_header.append(" ".join(fields))
@@ -39,10 +40,12 @@ class Parser(object):
         with open(path) as f:
             gen_lines = (line.rstrip() for line in f if line.strip())
             for line in gen_lines:
+                cnf_version = re.search('#config-version=.*', line)
+                if cnf_version:
+                    self.config_version = cnf_version.group(0).split("-")[2]
                 #pprint(dict(self.section_dict))
-                # Clean up the fields and remove unused lines.            
+                #Clean up the fields and remove unused lines.            
                 fields = line.replace('"', '').strip().split(" ")
-
                 valid_fields= ["set","end","edit","config","next"]
                 if fields[0] in valid_fields:
                     method = fields[0]
@@ -50,7 +53,7 @@ class Parser(object):
                     #print("config flag: %s edit flag:  %s  %s " %(self.config_flag, self.edit_flag, fields[1:]))
                     getattr(Parser, "parse_" + method)(self, fields[1:])
 
-        return self.section_dict
+        return (self.section_dict, self.config_version)
 
 class Fortigate_Checks(Parser):
     def __init__(self, Parser):
@@ -97,9 +100,8 @@ class Fortigate_Checks(Parser):
 
 
 def main():
-    #string = re.search('#config-version=.*', text_new)
-    #print(string.group(0).split("-")[2])
-    config = Parser().parse_file(r'c:\temp\muster_v5.conf')
+    (config, version) = Parser().parse_file(r'c:\temp\muster_v5.conf') 
+    print("[+] You are running version %s" % version)
     forti_check = Fortigate_Checks(config)
     print(forti_check.get_hostname())
     print(forti_check.get_strong_crypto())
